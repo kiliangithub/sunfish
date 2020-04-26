@@ -5,6 +5,11 @@ from __future__ import print_function
 import re, sys, time
 from itertools import count
 from collections import namedtuple
+#import serial                                 #importeren bibliotheek om serieel te kunnen comuniceren
+
+occupied = ['a1','a2','b1','b2','c1','c2','d1','d2','e1','e2','f1','f2','g1','g2','h1','h2','a8','a7','b8','b7','c8','c7','d8','d7','e8','e7','f8','f7','g8','g7','h8','h7']
+#lijst aanmaken om makkelijk bij te houden welke vakjes van het schaakbord bezet zijn en te controleren of er een stukje verwijderd wordt
+
 
 ###############################################################################
 # Piece-Square tables. Tune these to change sunfish's behaviour
@@ -402,6 +407,12 @@ def print_pos(pos):
     print('    a b c d e f g h \n\n')
 
 
+def updatelist(weghalen,toevoegen):    #De lijst wordt geupdate met de nieuwe bezetting van het bord na een zet van een speler
+    occupied.remove(weghalen)
+    occupied.append(toevoegen)
+    print(occupied)
+    
+
 def main():
     hist = [Position(initial, 0, (True,True), (True,True), 0, 0)]
     searcher = Searcher()
@@ -418,6 +429,7 @@ def main():
             match = re.match('([a-h][1-8])'*2, input('Your move: '))
             if match:
                 move = parse(match.group(1)), parse(match.group(2))
+                
             else:
                 # Inform the user when invalid input (e.g. "help") is entered
                 print("Please enter a move like g8f6")
@@ -445,7 +457,43 @@ def main():
         print("My move:", render(119-move[0]) + render(119-move[1]))
         hist.append(hist[-1].move(move))
 
+        startplayer1=str(match.group(1))        #het startpunt van de zet van speler1
+        endplayer1=str(match.group(2))          #het eindpunt van de zet van speler1
+        startplayer2=str(render(119-move[0]))   #het startpunt van de zet van speler2
+        endplayer2=str(render(119-move[1]))     #het eindpunt van de zet van speler2
+        
+        
+        player1removepart = endplayer1 in occupied  #nakijken of er een stuk moet weggenoemen worden ten gevolge van speler1
+        if player1removepart:
+            pl1remove = 1
+            occupied.remove(str(endplayer1))        #het stuk dat verwijderd wordt uit de lijst halen
+        else:
+            pl1remove = 0
+        
+        updatelist(startplayer1,endplayer1)
 
+        player2removepart = endplayer2 in occupied   #nakijken of er een stuk moet weggenoemen worden ten gevolge van speler2
+        if player2removepart:
+            pl2remove = 1
+            occupied.remove(str(endplayer2))       #het stuk dat verwijderd wordt uit de lijst halen
+        else:
+            pl2remove = 0
+        
+        updatelist(startplayer2,endplayer2)
+
+#het serieel doorgeven van begin en eindpositie van speler1 gevolgd door de begin en eindpositie van speler2
+#gevolgd door 2 bools om te signaleren of speler1 een stukje van speler2 weg neemt en of speler 2 een stukje van speler1 weg neemt
+        ser.write(str(match.group(1)).encode('utf-8'))          
+        ser.write(str(match.group(2)).encode('utf-8'))
+        ser.write(str(render(119-move[0])).encode('utf-8'))
+        ser.write(str(render(119-move[1])).encode('utf-8'))
+        ser.write(str(pl1remove).encode('utf-8'))
+        ser.write(str(pl2remove).encode('utf-8'))
+        ser.write(b"\n")
+        line = ser.readline().decode('utf-8').rstrip()   #het arduino programmatje stuurt serieel de ontvangen data terug naar de raspberry
+        print(line)                                        #de raspberry print deze ontvangen data om te controleren of alles goed is verlopen
+        time.sleep(1)
+        
 if __name__ == '__main__':
     main()
 
